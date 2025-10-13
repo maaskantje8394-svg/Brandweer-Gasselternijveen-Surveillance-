@@ -12,12 +12,14 @@ const client = new Client({
 
 // Config
 const TOKEN = process.env.TOKEN;
-const STATS_CHANNEL = "1427227765995995198"; // hoofdembed kanaal
-const LOG_CHANNEL = "1427229712668819516"; // log kanaal
+const STATS_CHANNEL = "1427227765995995198"; // Hoofdembed
+const LOG_CHANNEL = "1427229712668819516"; // Marketing Log
+const PARTNER_LOG_CHANNEL = "1427237156061184030"; // Partner log
 const DATA_FILE = "./data.json";
 
-// Manager rol-ID
-const MANAGER_ROLE_ID = "1390083849849143420";
+// Rollen IDs
+const MANAGER_ROLE_ID = "1390083849849143420"; // Marketing managers
+const TICKET_ROLE_ID = "1390083849843419"; // Ticket managers
 
 // Beheerde users
 let MANAGED_USERS = [
@@ -41,9 +43,14 @@ function saveData() {
   fs.writeJsonSync(DATA_FILE, data, { spaces: 2 });
 }
 
-// Helper: Check if user is manager
+// Helper: Check manager
 function isManager(member) {
   return member.roles.cache.has(MANAGER_ROLE_ID);
+}
+
+// Helper: Check ticket manager
+function isTicketManager(member) {
+  return member.roles.cache.has(TICKET_ROLE_ID);
 }
 
 // Helper: Generate main embed
@@ -62,7 +69,7 @@ function generateMainEmbed() {
   return embed;
 }
 
-// Helper: Send or update main embed
+// Update main embed
 let mainMessage;
 async function updateMainEmbed(channel) {
   const embed = generateMainEmbed();
@@ -73,155 +80,166 @@ async function updateMainEmbed(channel) {
   }
 }
 
-// Ready event
+// Ready
 client.once("ready", async () => {
   console.log(`Ingelogd als ${client.user.tag}`);
   const channel = await client.channels.fetch(STATS_CHANNEL);
   await updateMainEmbed(channel);
 });
 
-// Message handling
+// Commands
 client.on("messageCreate", async message => {
   if (message.author.bot) return;
   if (!message.content.startsWith("!")) return;
-  if (!isManager(message.member)) {
-    return message.reply("❌ Je hebt geen toestemming om dit command te gebruiken.");
-  }
 
   const args = message.content.slice(1).trim().split(/ +/);
   const command = args.shift().toLowerCase();
-  const logChannel = await client.channels.fetch(LOG_CHANNEL);
+
   const statsChannel = await client.channels.fetch(STATS_CHANNEL);
+  const logChannel = await client.channels.fetch(LOG_CHANNEL);
+  const partnerLogChannel = await client.channels.fetch(PARTNER_LOG_CHANNEL);
 
-  // !log command
-  if (command === "log") {
-    const user = message.mentions.users.first();
-    const amount = parseInt(args[1] || args[0]);
-    if (!user || isNaN(amount)) return message.reply("Gebruik: !log @user <aantal>");
-    if (!MANAGED_USERS.includes(user.id)) return message.reply("Deze gebruiker wordt niet beheerd.");
+  // ------------------- Marketing Manager Commands -------------------
+  if (isManager(message.member)) {
 
-    data[user.id] = (data[user.id] || 0) + amount;
-    saveData();
-    await updateMainEmbed(statsChannel);
+    if (command === "collega") {
+      const sub = args[0];
+      const userId = args[1]?.replace(/[<@!>]/g, "");
+      if (!userId) return message.reply("Gebruik: !collega add/ontslaan @user");
 
-    const logEmbed = new EmbedBuilder()
-      .setTitle("Marketing Log")
-      .setColor("#00ff00")
-      .setDescription(`✅ **${message.author.tag}** voegde ${amount} Robux toe aan <@${user.id}> (totaal: ${data[user.id]})`)
-      .setTimestamp();
-    await logChannel.send({ embeds: [logEmbed] });
-
-    if (data[user.id] >= 1000 && data[user.id] - amount < 1000) {
-      const milestone = new EmbedBuilder()
-        .setTitle("🎉 Mijlpaal!")
-        .setColor("#FFD700")
-        .setDescription(`<@${user.id}> heeft 1000 Robux bereikt!`);
-      await logChannel.send({ embeds: [milestone] });
-    }
-
-    return message.reply(`✅ ${user.tag} is bijgewerkt!`);
-  }
-
-  // !set command
-  if (command === "set") {
-    const user = message.mentions.users.first();
-    const amount = parseInt(args[1] || args[0]);
-    if (!user || isNaN(amount)) return message.reply("Gebruik: !set @user <aantal>");
-    if (!MANAGED_USERS.includes(user.id)) return message.reply("Deze gebruiker wordt niet beheerd.");
-
-    data[user.id] = amount;
-    saveData();
-    await updateMainEmbed(statsChannel);
-
-    const logEmbed = new EmbedBuilder()
-      .setTitle("Marketing Log")
-      .setColor("#FFA500")
-      .setDescription(`⚙️ **${message.author.tag}** zette <@${user.id}> op ${amount} Robux`)
-      .setTimestamp();
-    await logChannel.send({ embeds: [logEmbed] });
-
-    return message.reply(`✅ ${user.tag} is ingesteld!`);
-  }
-
-  // !reset
-  if (command === "reset") {
-    MANAGED_USERS.forEach(id => data[id] = 0);
-    saveData();
-    await updateMainEmbed(statsChannel);
-
-    const logEmbed = new EmbedBuilder()
-      .setTitle("Marketing Log")
-      .setColor("#FF0000")
-      .setDescription(`🧹 **${message.author.tag}** reset alle Robux`)
-      .setTimestamp();
-    await logChannel.send({ embeds: [logEmbed] });
-
-    return message.reply("✅ Alle Robux zijn gereset!");
-  }
-
-  // !top
-  if (command === "top") {
-    const sorted = Object.entries(data).sort((a, b) => b[1] - a[1]);
-    const top5 = sorted.slice(0, 5).map(([id, amt], idx) => `**${idx + 1}.** <@${id}> - ${amt} Robux`).join("\n");
-    const topEmbed = new EmbedBuilder()
-      .setTitle("🏆 Top 5 Marketing Leden")
-      .setColor("#00FFFF")
-      .setDescription(top5);
-    return message.channel.send({ embeds: [topEmbed] });
-  }
-
-  // !recreate
-  if (command === "recreate") {
-    mainMessage = null;
-    await updateMainEmbed(statsChannel);
-    return message.reply("✅ Hoofdembed is hersteld!");
-  }
-
-  // !build
-  if (command === "build") {
-    MANAGED_USERS.forEach(id => {
-      if (!data[id]) data[id] = 0;
-    });
-    saveData();
-    await updateMainEmbed(statsChannel);
-
-    const logEmbed = new EmbedBuilder()
-      .setTitle("Marketing Build")
-      .setColor("#00BFFF")
-      .setDescription(`🛠 **${message.author.tag}** heeft de hoofdembed opnieuw opgebouwd.`)
-      .setTimestamp();
-    await logChannel.send({ embeds: [logEmbed] });
-
-    return message.reply("✅ Hoofdembed is opnieuw opgebouwd!");
-  }
-
-  // !partner add/remove
-  if (command === "partner") {
-    const sub = args[0];
-    const userId = args[1];
-    if (!userId) return message.reply("Gebruik: !partner add/remove <userID>");
-    if (sub === "add") {
-      if (!MANAGED_USERS.includes(userId)) {
-        MANAGED_USERS.push(userId);
-        data[userId] = 0;
-        saveData();
-        await updateMainEmbed(statsChannel);
-        return message.reply(`✅ <@${userId}> toegevoegd aan partners.`);
-      } else {
-        return message.reply("Deze gebruiker staat al in de lijst.");
+      if (sub === "add") {
+        if (!MANAGED_USERS.includes(userId)) {
+          MANAGED_USERS.push(userId);
+          data[userId] = 0;
+          saveData();
+          await updateMainEmbed(statsChannel);
+          return message.reply(`✅ <@${userId}> toegevoegd als collega.`);
+        } else return message.reply("Deze gebruiker staat al in de lijst.");
       }
-    } else if (sub === "remove") {
-      if (MANAGED_USERS.includes(userId)) {
-        MANAGED_USERS = MANAGED_USERS.filter(id => id !== userId);
-        delete data[userId];
-        saveData();
-        await updateMainEmbed(statsChannel);
-        return message.reply(`✅ <@${userId}> verwijderd uit partners.`);
-      } else {
-        return message.reply("Deze gebruiker staat niet in de lijst.");
+
+      if (sub === "ontslaan") {
+        if (MANAGED_USERS.includes(userId)) {
+          MANAGED_USERS = MANAGED_USERS.filter(id => id !== userId);
+          delete data[userId];
+          saveData();
+          await updateMainEmbed(statsChannel);
+          return message.reply(`✅ <@${userId}> is ontslagen.`);
+        } else return message.reply("Deze gebruiker staat niet in de lijst.");
       }
     }
-  }
-});
 
-client.login(TOKEN);
+    if (command === "log") {
+      const user = message.mentions.users.first();
+      const amount = parseInt(args[1] || args[0]);
+      if (!user || isNaN(amount)) return message.reply("Gebruik: !log @user <aantal>");
+      if (!MANAGED_USERS.includes(user.id)) return message.reply("Deze gebruiker wordt niet beheerd.");
+
+      data[user.id] = (data[user.id] || 0) + amount;
+      saveData();
+      await updateMainEmbed(statsChannel);
+
+      const logEmbed = new EmbedBuilder()
+        .setTitle("Marketing Log")
+        .setColor("#00ff00")
+        .setDescription(`✅ **${message.author.tag}** voegde ${amount} Robux toe aan <@${user.id}> (totaal: ${data[user.id]})`)
+        .setTimestamp();
+      await logChannel.send({ embeds: [logEmbed] });
+
+      return message.reply(`✅ ${user.tag} is bijgewerkt!`);
+    }
+
+    if (command === "set") {
+      const user = message.mentions.users.first();
+      const amount = parseInt(args[1] || args[0]);
+      if (!user || isNaN(amount)) return message.reply("Gebruik: !set @user <aantal>");
+      if (!MANAGED_USERS.includes(user.id)) return message.reply("Deze gebruiker wordt niet beheerd.");
+
+      data[user.id] = amount;
+      saveData();
+      await updateMainEmbed(statsChannel);
+
+      const logEmbed = new EmbedBuilder()
+        .setTitle("Marketing Log")
+        .setColor("#FFA500")
+        .setDescription(`⚙️ **${message.author.tag}** zette <@${user.id}> op ${amount} Robux`)
+        .setTimestamp();
+      await logChannel.send({ embeds: [logEmbed] });
+
+      return message.reply(`✅ ${user.tag} is ingesteld!`);
+    }
+
+    if (command === "reset") {
+      MANAGED_USERS.forEach(id => data[id] = 0);
+      saveData();
+      await updateMainEmbed(statsChannel);
+
+      const logEmbed = new EmbedBuilder()
+        .setTitle("Marketing Log")
+        .setColor("#FF0000")
+        .setDescription(`🧹 **${message.author.tag}** reset alle Robux`)
+        .setTimestamp();
+      await logChannel.send({ embeds: [logEmbed] });
+
+      return message.reply("✅ Alle Robux zijn gereset!");
+    }
+
+    if (command === "top") {
+      const sorted = Object.entries(data).sort((a, b) => b[1] - a[1]);
+      const top5 = sorted.slice(0, 5).map(([id, amt], idx) => `**${idx + 1}.** <@${id}> - ${amt} Robux`).join("\n");
+      const topEmbed = new EmbedBuilder()
+        .setTitle("🏆 Top 5 Marketing Leden")
+        .setColor("#00FFFF")
+        .setDescription(top5);
+      return message.channel.send({ embeds: [topEmbed] });
+    }
+
+    if (command === "recreate") {
+      mainMessage = null;
+      await updateMainEmbed(statsChannel);
+      return message.reply("✅ Hoofdembed is hersteld!");
+    }
+
+    if (command === "build") {
+      MANAGED_USERS.forEach(id => {
+        if (!data[id]) data[id] = 0;
+      });
+      saveData();
+      await updateMainEmbed(statsChannel);
+
+      const logEmbed = new EmbedBuilder()
+        .setTitle("Marketing Build")
+        .setColor("#00BFFF")
+        .setDescription(`🛠 **${message.author.tag}** heeft de hoofdembed opnieuw opgebouwd.`)
+        .setTimestamp();
+      await logChannel.send({ embeds: [logEmbed] });
+
+      return message.reply("✅ Hoofdembed is opnieuw opgebouwd!");
+    }
+
+    if (command === "help") {
+      const helpEmbed = new EmbedBuilder()
+        .setTitle("Marketing Bot Commands")
+        .setColor("#00FFFF")
+        .setDescription(`
+**Collega Commands**
+!collega add @user - Voeg collega toe
+!collega ontslaan @user - Verwijder collega
+!log @user <Robux> - Voeg Robux toe
+!set @user <Robux> - Zet Robux totaal
+!reset - Reset alle totals
+!top - Top 5 overzicht
+!recreate - Herstel hoofdembed
+!build - Rebuild hoofdembed
+!totaal - Zie je eigen totaal
+!add partner @user - Partner toevoegen in partner log
+!logpartner @user <server> <Robux> - Voeg Robux toe (Ticket rol)
+!bericht - Stuur welkomsbericht
+`);
+      return message.channel.send({ embeds: [helpEmbed] });
+    }
+  }
+
+  // ------------------- Ticket Manager Commands -------------------
+  if (isTicketManager(message.member)) {
+    if (command === "logpartner") {
+      const user = message.mentions.users.first();
