@@ -1,15 +1,25 @@
 import { Client, GatewayIntentBits, EmbedBuilder } from "discord.js";
 import fs from "fs-extra";
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildMembers
+  ]
+});
 
 // Config
 const TOKEN = process.env.TOKEN;
-const GUILD_ID = "jouw-server-id"; // optioneel
 const STATS_CHANNEL = "1427227765995995198"; // hoofdembed kanaal
 const LOG_CHANNEL = "1427229712668819516"; // log kanaal
 const DATA_FILE = "./data.json";
-const MANAGER_ROLES = ["L.G Marketing", "ASS Marketing"];
+
+// Manager rol-ID
+const MANAGER_ROLE_ID = "1390083849849143420";
+
+// Beheerde users
 let MANAGED_USERS = [
   "1375552459723902976",
   "1189931854657224858",
@@ -33,15 +43,13 @@ function saveData() {
 
 // Helper: Check if user is manager
 function isManager(member) {
-  return member.roles.cache.some(r => MANAGER_ROLES.includes(r.name));
+  return member.roles.cache.has(MANAGER_ROLE_ID);
 }
 
 // Helper: Generate main embed
 function generateMainEmbed() {
-  // Create array of entries sorted by Robux descending
   const sortedEntries = Object.entries(data).sort((a, b) => b[1] - a[1]);
   const description = sortedEntries.map(([id, amount]) => `<@${id}>: :Robux_2019_Logo_gold: ${amount}\n===================`).join("\n");
-
   const total = Object.values(data).reduce((a, b) => a + b, 0);
 
   const embed = new EmbedBuilder()
@@ -77,7 +85,7 @@ client.on("messageCreate", async message => {
   if (message.author.bot) return;
   if (!message.content.startsWith("!")) return;
   if (!isManager(message.member)) {
-    return message.reply({ content: "❌ Je hebt geen toestemming om dit command te gebruiken.", ephemeral: true });
+    return message.reply("❌ Je hebt geen toestemming om dit command te gebruiken.");
   }
 
   const args = message.content.slice(1).trim().split(/ +/);
@@ -85,6 +93,7 @@ client.on("messageCreate", async message => {
   const logChannel = await client.channels.fetch(LOG_CHANNEL);
   const statsChannel = await client.channels.fetch(STATS_CHANNEL);
 
+  // !log command
   if (command === "log") {
     const user = message.mentions.users.first();
     const amount = parseInt(args[1] || args[0]);
@@ -95,7 +104,6 @@ client.on("messageCreate", async message => {
     saveData();
     await updateMainEmbed(statsChannel);
 
-    // Log embed
     const logEmbed = new EmbedBuilder()
       .setTitle("Marketing Log")
       .setColor("#00ff00")
@@ -103,7 +111,6 @@ client.on("messageCreate", async message => {
       .setTimestamp();
     await logChannel.send({ embeds: [logEmbed] });
 
-    // Milestone
     if (data[user.id] >= 1000 && data[user.id] - amount < 1000) {
       const milestone = new EmbedBuilder()
         .setTitle("🎉 Mijlpaal!")
@@ -115,6 +122,7 @@ client.on("messageCreate", async message => {
     return message.reply(`✅ ${user.tag} is bijgewerkt!`);
   }
 
+  // !set command
   if (command === "set") {
     const user = message.mentions.users.first();
     const amount = parseInt(args[1] || args[0]);
@@ -135,6 +143,7 @@ client.on("messageCreate", async message => {
     return message.reply(`✅ ${user.tag} is ingesteld!`);
   }
 
+  // !reset
   if (command === "reset") {
     MANAGED_USERS.forEach(id => data[id] = 0);
     saveData();
@@ -150,6 +159,7 @@ client.on("messageCreate", async message => {
     return message.reply("✅ Alle Robux zijn gereset!");
   }
 
+  // !top
   if (command === "top") {
     const sorted = Object.entries(data).sort((a, b) => b[1] - a[1]);
     const top5 = sorted.slice(0, 5).map(([id, amt], idx) => `**${idx + 1}.** <@${id}> - ${amt} Robux`).join("\n");
@@ -160,12 +170,32 @@ client.on("messageCreate", async message => {
     return message.channel.send({ embeds: [topEmbed] });
   }
 
+  // !recreate
   if (command === "recreate") {
     mainMessage = null;
     await updateMainEmbed(statsChannel);
     return message.reply("✅ Hoofdembed is hersteld!");
   }
 
+  // !build
+  if (command === "build") {
+    MANAGED_USERS.forEach(id => {
+      if (!data[id]) data[id] = 0;
+    });
+    saveData();
+    await updateMainEmbed(statsChannel);
+
+    const logEmbed = new EmbedBuilder()
+      .setTitle("Marketing Build")
+      .setColor("#00BFFF")
+      .setDescription(`🛠 **${message.author.tag}** heeft de hoofdembed opnieuw opgebouwd.`)
+      .setTimestamp();
+    await logChannel.send({ embeds: [logEmbed] });
+
+    return message.reply("✅ Hoofdembed is opnieuw opgebouwd!");
+  }
+
+  // !partner add/remove
   if (command === "partner") {
     const sub = args[0];
     const userId = args[1];
