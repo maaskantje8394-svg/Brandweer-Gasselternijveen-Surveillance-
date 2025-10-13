@@ -208,23 +208,15 @@ client.on("messageCreate", async message => {
     // !help
     if (command==="help") {
       const embed = new EmbedBuilder()
-        .setTitle("Marketing Bot Commands")
-        .setColor("#00FFFF")
-        .setDescription(`
-**Collega Commands**
-!collega add @user - Voeg collega toe
-!collega ontslaan @user - Verwijder collega
-!log @user <Robux> - Voeg Robux toe
-!set @user <Robux> - Zet totaal
-!reset - Reset alle totals
-!top - Top 5 overzicht
-!recreate - Herstel hoofdembed
-!build - Rebuild hoofdembed
-
-**Ticket Commands**
-!totaal - Bekijk eigen totaal
-!logpartner @user <server> <leden> <Robux> - Voeg Robux toe (Ticket rol)
-`);
+        .setColor("RED")
+        .setTitle("🚒 Brandweer Gasselternijveen Surveillance Bot Commands")
+        .setDescription("Overzicht van alle beschikbare commands")
+        .setImage("https://media.discordapp.net/attachments/1274312169743319112/1427225588132872246/658F897E-B2C5-49F5-A349-BA838DF7B241.jpg")
+        .addFields(
+          { name: "Collega Commands", value: "`!collega add @user` - Voeg collega toe\n`!collega ontslaan @user` - Verwijder collega\n`!log @user <Robux>` - Voeg Robux toe\n`!set @user <Robux>` - Zet totaal\n`!reset` - Reset alle totals\n`!top` - Top 5 overzicht\n`!recreate` - Herstel hoofdembed\n`!build` - Rebuild hoofdembed", inline:false },
+          { name: "Ticket Commands", value: "`!totaal` - Bekijk eigen totaal\n`!logpartner @user <server> <leden> <Robux>` - Voeg Robux toe (Ticket rol)", inline:false }
+        )
+        .setFooter({ text:"MarketingTeam  Brandweer Gasselternijveen Surveillance." });
       return message.channel.send({ embeds:[embed] });
     }
   }
@@ -234,11 +226,15 @@ client.on("messageCreate", async message => {
     // !logpartner
     if (command === "logpartner") {
       const user = message.mentions.users.first();
-      const serverName = args[1];
-      const membersCount = parseInt(args[2]);
-      const robux = parseInt(args[3]);
+      if (!user) return message.reply("Gebruik: !logpartner @user <server> <leden> <Robux>");
 
-      if (!user || !serverName || isNaN(membersCount) || isNaN(robux)) {
+      // Pak laatste 2 args als leden en robux
+      const membersCount = parseInt(args[args.length-2]);
+      const robux = parseInt(args[args.length-1]);
+      // Servernaam is alles ertussen
+      const serverName = args.slice(0, args.length-2).join(" ").replace(/"/g,"");
+
+      if (!serverName || isNaN(membersCount) || isNaN(robux)) {
         return message.reply("Gebruik: !logpartner @user <server> <leden> <Robux>");
       }
 
