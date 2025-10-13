@@ -28,14 +28,19 @@ const BEHEER_ROLE = "1355971325700739143";
 const LEIDING_ROLES = ["1427017418122723379","1427019646665490472"];
 const MARKETING_ROLE = "1424424991797154003";
 
-// Managed users (kan automatisch uit data.json komen)
-let MANAGED_USERS = [];
-
 // ---------------- DATA ----------------
-let data = {};
-if(fs.existsSync(DATA_FILE)) data = fs.readJsonSync(DATA_FILE);
-else { fs.writeJsonSync(DATA_FILE, {}, {spaces:2}); }
-MANAGED_USERS = Object.keys(data);
+// Startwaarden met je collega’s en emoji
+let data = {
+  "1189931854657224858": 400,
+  "1375552459723902976": 235,
+  "846391521863532604": 270,
+  "1041376138829770792": 120,
+  "1372670379717562480": 75,
+  "1335663878683492512": 20,
+  "1369407513048514591": 0
+};
+let MANAGED_USERS = Object.keys(data);
+fs.writeJsonSync(DATA_FILE, data, { spaces: 2 });
 
 // ---------------- HELPERS ----------------
 function saveData(){ fs.writeJsonSync(DATA_FILE,data,{spaces:2}); }
@@ -43,12 +48,13 @@ function hasRole(member,roleIds){ return roleIds.some(id=>member.roles.cache.has
 
 function generateMainEmbed(){
   const sorted = Object.entries(data).sort((a,b)=>b[1]-a[1]);
-  const description = sorted.map(([id,amt])=>`<@${id}>: :Robux_2019_Logo_gold: ${amt}\n===================`).join("\n");
+  const description = sorted.map(([id,amt])=>`<@${id}>: <:Robux_2019_Logo_gold:1424127061060091984> ${amt}\n===================`).join("\n");
   const total = Object.values(data).reduce((a,b)=>a+b,0);
+
   return new EmbedBuilder()
     .setColor(0xDC3004)
-    .setTitle("📊 Marketing Totaal")
-    .setDescription(`${description}\n**In totaal: :Robux_2019_Logo_gold: ${total}**`)
+    .setTitle("📊 Marketing Leden")
+    .setDescription(`${description}\n**In totaal: <:Robux_2019_Logo_gold:1424127061060091984> ${total}**\n\nMarketing uitbetalingen \`Oktober\`\nUitbetaling op \`01-11-2025\``)
     .setImage("https://media.discordapp.net/attachments/1274312169743319112/1427225588132872246/658F897E-B2C5-49F5-A349-BA838DF7B241.jpg")
     .setFooter({ text:"MarketingTeam  Brandweer Gasselternijveen Surveillance." });
 }
@@ -131,7 +137,7 @@ client.on("messageCreate",async message=>{
     // !top
     if(command==="top"){
       const top5 = Object.entries(data).sort((a,b)=>b[1]-a[1]).slice(0,5)
-        .map(([id,amt],i)=>`**${i+1}.** <@${id}> - ${amt} Robux`).join("\n");
+        .map(([id,amt],i)=>`**${i+1}.** <@${id}> - ${amt} <:Robux_2019_Logo_gold:1424127061060091984>`).join("\n");
       const embed = new EmbedBuilder()
         .setTitle("🏆 Top 5 Marketing Leden")
         .setColor(0x00FFFF)
@@ -151,13 +157,13 @@ client.on("messageCreate",async message=>{
     // !totaal
     if(command==="totaal"){
       const amount = data[message.author.id]||0;
-      return message.reply(`Je totaal Robux: ${amount}`);
+      return message.reply(`Je totaal Robux: ${amount} <:Robux_2019_Logo_gold:1424127061060091984>`);
     }
 
     // !top
     if(command==="top"){
       const top5 = Object.entries(data).sort((a,b)=>b[1]-a[1]).slice(0,5)
-        .map(([id,amt],i)=>`**${i+1}.** <@${id}> - ${amt} Robux`).join("\n");
+        .map(([id,amt],i)=>`**${i+1}.** <@${id}> - ${amt} <:Robux_2019_Logo_gold:1424127061060091984>`).join("\n");
       const embed = new EmbedBuilder()
         .setTitle("🏆 Top 5 Marketing Leden")
         .setColor(0x00FFFF)
