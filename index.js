@@ -5,12 +5,12 @@ import express from "express";
 // ---------------- EXPRESS SERVER ----------------
 const app = express();
 const PORT = process.env.PORT || 3000;
-app.get("/", (req, res) => res.send("Bot is online ✅"));
-app.listen(PORT, () => console.log(`Express server draait op poort ${PORT}`));
+app.get("/", (req,res)=>res.send("Bot is online ✅"));
+app.listen(PORT,()=>console.log(`Express server draait op poort ${PORT}`));
 
 // ---------------- DISCORD ----------------
 const client = new Client({
-  intents: [
+  intents:[
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
@@ -20,168 +20,165 @@ const client = new Client({
 
 // ---------------- CONFIG ----------------
 const TOKEN = process.env.TOKEN;
-const STATS_CHANNEL = "1427227765995995198"; // Hoofdembed
-const LOG_CHANNEL = "1427229712668819516";   // Marketing log
+const MAIN_CHANNEL = "1424777371092910181"; // Eind bedrag kanaal
 const DATA_FILE = "./data.json";
 
-const MANAGER_ROLE_ID = "1390083849849143420"; // L.G / ASS marketing
+// Rollen
+const BEHEER_ROLE = "1355971325700739143";
+const LEIDING_ROLES = ["1427017418122723379","1427019646665490472"];
+const MARKETING_ROLE = "1424424991797154003";
 
-let MANAGED_USERS = [
-  "1375552459723902976",
-  "1189931854657224858",
-  "952959834259587153",
-  "1025073640150143066"
-];
+// Managed users (kan automatisch uit data.json komen)
+let MANAGED_USERS = [];
 
 // ---------------- DATA ----------------
 let data = {};
-if (fs.existsSync(DATA_FILE)) data = fs.readJsonSync(DATA_FILE);
-else {
-  MANAGED_USERS.forEach(id => data[id] = 0);
-  fs.writeJsonSync(DATA_FILE, data, { spaces: 2 });
-}
+if(fs.existsSync(DATA_FILE)) data = fs.readJsonSync(DATA_FILE);
+else { fs.writeJsonSync(DATA_FILE, {}, {spaces:2}); }
+MANAGED_USERS = Object.keys(data);
 
 // ---------------- HELPERS ----------------
-function saveData() { fs.writeJsonSync(DATA_FILE, data, { spaces: 2 }); }
-function isManager(member) { return member.roles.cache.has(MANAGER_ROLE_ID); }
+function saveData(){ fs.writeJsonSync(DATA_FILE,data,{spaces:2}); }
+function hasRole(member,roleIds){ return roleIds.some(id=>member.roles.cache.has(id)); }
 
-function generateMainEmbed() {
+function generateMainEmbed(){
   const sorted = Object.entries(data).sort((a,b)=>b[1]-a[1]);
   const description = sorted.map(([id,amt])=>`<@${id}>: :Robux_2019_Logo_gold: ${amt}\n===================`).join("\n");
   const total = Object.values(data).reduce((a,b)=>a+b,0);
   return new EmbedBuilder()
     .setColor(0xDC3004)
-    .setTitle("Uitbetaling Marketing Leden.")
-    .setDescription(`${description}\n**In totaal: :Robux_2019_Logo_gold: ${total}**\n\nMarketing uitbetalingen \`Oktober\`\nUitbetaling op \`01-11-2025\``)
+    .setTitle("📊 Marketing Totaal")
+    .setDescription(`${description}\n**In totaal: :Robux_2019_Logo_gold: ${total}**`)
     .setImage("https://media.discordapp.net/attachments/1274312169743319112/1427225588132872246/658F897E-B2C5-49F5-A349-BA838DF7B241.jpg")
-    .setFooter({ text: "MarketingTeam  Brandweer Gasselternijveen Surveillance." });
+    .setFooter({ text:"MarketingTeam  Brandweer Gasselternijveen Surveillance." });
 }
 
 let mainMessage;
-async function updateMainEmbed(channel) {
+async function updateMainEmbed(channel){
   const embed = generateMainEmbed();
-  if (!mainMessage) mainMessage = await channel.send({ embeds: [embed] });
-  else await mainMessage.edit({ embeds: [embed] });
+  if(!mainMessage) mainMessage = await channel.send({embeds:[embed]});
+  else await mainMessage.edit({embeds:[embed]});
 }
 
 // ---------------- READY ----------------
-client.once("ready", async () => {
+client.once("ready",async ()=>{
   console.log(`Ingelogd als ${client.user.tag}`);
-  const statsChannel = await client.channels.fetch(STATS_CHANNEL);
-  await updateMainEmbed(statsChannel);
+  const mainChannel = await client.channels.fetch(MAIN_CHANNEL);
+  await updateMainEmbed(mainChannel);
 });
 
 // ---------------- COMMANDS ----------------
-client.on("messageCreate", async message => {
-  if (message.author.bot || !message.content.startsWith("!")) return;
+client.on("messageCreate",async message=>{
+  if(message.author.bot || !message.content.startsWith("!")) return;
 
   const args = message.content.slice(1).trim().split(/ +/);
   const command = args.shift().toLowerCase();
-  const statsChannel = await client.channels.fetch(STATS_CHANNEL);
-  const logChannel = await client.channels.fetch(LOG_CHANNEL);
+  const mainChannel = await client.channels.fetch(MAIN_CHANNEL);
 
-  // ---------------- MANAGER COMMANDS ----------------
-  if (isManager(message.member)) {
+  // ---------- LEIDING / BEHEER COMMANDS ----------
+  if(hasRole(message.member,[BEHEER_ROLE,...LEIDING_ROLES])){
 
     // !collega add/ontslaan
-    if (command === "collega") {
+    if(command==="collega"){
       const sub = args[0];
       const userId = args[1]?.replace(/[<@!>]/g,"");
-      if (!userId) return message.reply("Gebruik: !collega add/ontslaan @user");
+      if(!userId) return;
 
-      if (sub === "add") {
-        if (!MANAGED_USERS.includes(userId)) {
-          MANAGED_USERS.push(userId);
-          data[userId] = 0;
-          saveData();
-          await updateMainEmbed(statsChannel);
-          return message.reply(`✅ <@${userId}> toegevoegd als collega.`);
-        } else return message.reply("Deze gebruiker staat al in de lijst.");
+      if(sub==="add" && !MANAGED_USERS.includes(userId)){
+        MANAGED_USERS.push(userId);
+        data[userId] = 0;
+        saveData();
+        await updateMainEmbed(mainChannel);
       }
 
-      if (sub === "ontslaan") {
-        if (MANAGED_USERS.includes(userId)) {
-          MANAGED_USERS = MANAGED_USERS.filter(id=>id!==userId);
-          delete data[userId];
-          saveData();
-          await updateMainEmbed(statsChannel);
-          return message.reply(`✅ <@${userId}> is ontslagen.`);
-        } else return message.reply("Deze gebruiker staat niet in de lijst.");
+      if(sub==="ontslaan" && MANAGED_USERS.includes(userId)){
+        MANAGED_USERS = MANAGED_USERS.filter(id=>id!==userId);
+        delete data[userId];
+        saveData();
+        await updateMainEmbed(mainChannel);
       }
     }
 
-    // !log
-    if (command === "log") {
+    // !log @user <amount>
+    if(command==="log"){
       const user = message.mentions.users.first();
       const amount = parseInt(args[1]||args[0]);
-      if (!user || isNaN(amount)) return message.reply("Gebruik: !log @user <aantal>");
-      if (!MANAGED_USERS.includes(user.id)) return message.reply("Deze gebruiker wordt niet beheerd.");
-
+      if(!user || isNaN(amount)) return;
+      if(!MANAGED_USERS.includes(user.id)) return;
       data[user.id] = (data[user.id]||0)+amount;
       saveData();
-      await updateMainEmbed(statsChannel);
-
-      const embed = new EmbedBuilder()
-        .setTitle("Marketing Log")
-        .setColor(0x00FF00)
-        .setDescription(`✅ **${message.author.tag}** voegde ${amount} Robux toe aan <@${user.id}> (totaal: ${data[user.id]})`)
-        .setTimestamp();
-      await logChannel.send({ embeds:[embed] });
-      return message.reply(`✅ ${user.tag} is bijgewerkt!`);
+      await updateMainEmbed(mainChannel);
     }
 
-    // !set
-    if (command === "set") {
+    // !set @user <amount>
+    if(command==="set"){
       const user = message.mentions.users.first();
       const amount = parseInt(args[1]||args[0]);
-      if (!user || isNaN(amount)) return message.reply("Gebruik: !set @user <aantal>");
-      if (!MANAGED_USERS.includes(user.id)) return message.reply("Deze gebruiker wordt niet beheerd.");
+      if(!user || isNaN(amount)) return;
+      if(!MANAGED_USERS.includes(user.id)) return;
       data[user.id] = amount;
       saveData();
-      await updateMainEmbed(statsChannel);
-      return message.reply(`✅ <@${user.id}> is ingesteld op ${amount} Robux!`);
+      await updateMainEmbed(mainChannel);
     }
 
     // !reset
-    if (command === "reset") {
+    if(command==="reset"){
       MANAGED_USERS.forEach(id=>data[id]=0);
       saveData();
-      await updateMainEmbed(statsChannel);
-      return message.reply("✅ Alle Robux zijn gereset!");
+      await updateMainEmbed(mainChannel);
     }
 
     // !top
-    if (command === "top") {
+    if(command==="top"){
       const top5 = Object.entries(data).sort((a,b)=>b[1]-a[1]).slice(0,5)
-                    .map(([id,amt],i)=>`**${i+1}.** <@${id}> - ${amt} Robux`).join("\n");
+        .map(([id,amt],i)=>`**${i+1}.** <@${id}> - ${amt} Robux`).join("\n");
       const embed = new EmbedBuilder()
         .setTitle("🏆 Top 5 Marketing Leden")
         .setColor(0x00FFFF)
         .setDescription(top5);
-      return message.channel.send({ embeds:[embed] });
+      return message.channel.send({embeds:[embed]});
     }
 
     // !recreate
-    if (command === "recreate") {
-      mainMessage = null;
-      await updateMainEmbed(statsChannel);
-      return message.reply("✅ Hoofdembed is hersteld!");
+    if(command==="recreate"){
+      mainMessage=null;
+      await updateMainEmbed(mainChannel);
+    }
+  }
+
+  // ---------- MARKETING TEAM COMMANDS ----------
+  if(message.member.roles.cache.has(MARKETING_ROLE)){
+    // !totaal
+    if(command==="totaal"){
+      const amount = data[message.author.id]||0;
+      return message.reply(`Je totaal Robux: ${amount}`);
     }
 
-    // !help
-    if (command==="help") {
+    // !top
+    if(command==="top"){
+      const top5 = Object.entries(data).sort((a,b)=>b[1]-a[1]).slice(0,5)
+        .map(([id,amt],i)=>`**${i+1}.** <@${id}> - ${amt} Robux`).join("\n");
       const embed = new EmbedBuilder()
-        .setColor(0xFF0000)
-        .setTitle("🚒 Brandweer Gasselternijveen Surveillance Bot Commands")
-        .setDescription("Overzicht van alle beschikbare commands")
-        .setImage("https://media.discordapp.net/attachments/1274312169743319112/1427225588132872246/658F897E-B2C5-49F5-A349-BA838DF7B241.jpg")
-        .addFields(
-          { name: "Collega Commands", value: "`!collega add @user` - Voeg collega toe\n`!collega ontslaan @user` - Verwijder collega\n`!set @user <Robux>` - Zet totaal\n`!reset` - Reset alle totals", inline:false },
-          { name: "Marketing Commands", value: "`!log @user <aantal>` - Voeg Robux toe\n`!top` - Bekijk top 5\n`!recreate` - Herstel hoofdembed", inline:false }
-        )
-        .setFooter({ text:"MarketingTeam  Brandweer Gasselternijveen Surveillance." });
-      return message.channel.send({ embeds:[embed] });
+        .setTitle("🏆 Top 5 Marketing Leden")
+        .setColor(0x00FFFF)
+        .setDescription(top5);
+      return message.channel.send({embeds:[embed]});
     }
+  }
+
+  // ---------- HELP ----------
+  if(command==="help"){
+    const embed = new EmbedBuilder()
+      .setColor(0xFF0000)
+      .setTitle("🚒 Brandweer Gasselternijveen Surveillance Bot Commands")
+      .setDescription("Overzicht van alle beschikbare commands")
+      .setImage("https://media.discordapp.net/attachments/1274312169743319112/1427225588132872246/658F897E-B2C5-49F5-A349-BA838DF7B241.jpg")
+      .addFields(
+        { name:"Leiding / Beheer", value:"`!collega add @user` - Voeg toe\n`!collega ontslaan @user` - Verwijder\n`!log @user <Robux>` - Voeg Robux toe\n`!set @user <Robux>` - Zet totaal\n`!reset` - Reset alles\n`!top` - Top 5\n`!recreate` - Herbouw embed", inline:false },
+        { name:"Marketing Team", value:"`!totaal` - Bekijk eigen totaal\n`!top` - Top 5 overzicht", inline:false }
+      )
+      .setFooter({text:"MarketingTeam  Brandweer Gasselternijveen Surveillance."});
+    return message.channel.send({embeds:[embed]});
   }
 });
 
