@@ -1,6 +1,20 @@
 import { Client, GatewayIntentBits, EmbedBuilder } from "discord.js";
 import fs from "fs-extra";
+import express from "express";
 
+// ---------------- EXPRESS SERVER ----------------
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.get("/", (req, res) => {
+  res.send("Bot is online ✅");
+});
+
+app.listen(PORT, () => {
+  console.log(`Express server draait op poort ${PORT}`);
+});
+
+// ---------------- DISCORD BOT ----------------
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
