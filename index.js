@@ -12,14 +12,14 @@ const client = new Client({
 
 // ---------------- CONFIG ----------------
 const TOKEN = process.env.TOKEN;
-const STATS_CHANNEL = "1427227765995995198";
-const LOG_CHANNEL = "1427229712668819516";
-const PARTNER_LOG_CHANNEL = "1427237156061184030";
+const STATS_CHANNEL = "1427227765995995198";       // Hoofdembed
+const LOG_CHANNEL = "1427229712668819516";         // Marketing log
+const PARTNER_LOG_CHANNEL = "1427237156061184030";// Partner log
 const DATA_FILE = "./data.json";
 
 // Rollen
-const MANAGER_ROLE_ID = "1390083849849143420";
-const TICKET_ROLE_ID = "1390083849843419";
+const MANAGER_ROLE_ID = "1390083849849143420"; // Marketing managers
+const TICKET_ROLE_ID = "1390083849843419";    // Ticket managers
 
 // Beheerde users
 let MANAGED_USERS = [
@@ -80,11 +80,12 @@ client.on("messageCreate", async message => {
 
   // ---------------- MANAGER COMMANDS ----------------
   if (isManager(message.member)) {
-    // !collega
+    // !collega add/ontslaan
     if (command === "collega") {
       const sub = args[0];
       const userId = args[1]?.replace(/[<@!>]/g,"");
       if (!userId) return message.reply("Gebruik: !collega add/ontslaan @user");
+
       if (sub === "add") {
         if (!MANAGED_USERS.includes(userId)) {
           MANAGED_USERS.push(userId);
@@ -114,6 +115,7 @@ client.on("messageCreate", async message => {
       data[user.id] = (data[user.id]||0)+amount;
       saveData();
       await updateMainEmbed(statsChannel);
+
       const embed = new EmbedBuilder()
         .setTitle("Marketing Log")
         .setColor("#00ff00")
@@ -132,6 +134,7 @@ client.on("messageCreate", async message => {
       data[user.id] = amount;
       saveData();
       await updateMainEmbed(statsChannel);
+
       const embed = new EmbedBuilder()
         .setTitle("Marketing Log")
         .setColor("#FFA500")
@@ -146,6 +149,7 @@ client.on("messageCreate", async message => {
       MANAGED_USERS.forEach(id=>data[id]=0);
       saveData();
       await updateMainEmbed(statsChannel);
+
       const embed = new EmbedBuilder()
         .setTitle("Marketing Log")
         .setColor("#FF0000")
@@ -205,9 +209,7 @@ client.on("messageCreate", async message => {
 
 **Ticket Commands**
 !totaal - Bekijk eigen totaal
-!add partner @user - Partner toevoegen in partner log
-!logpartner @user <server> <Robux> - Voeg Robux toe (Ticket rol)
-!bericht - Stuur welkomsbericht
+!logpartner @user <server> <leden> <Robux> - Voeg Robux toe (Ticket rol)
 `);
       return message.channel.send({ embeds:[embed] });
     }
@@ -215,26 +217,36 @@ client.on("messageCreate", async message => {
 
   // ---------------- TICKET COMMANDS ----------------
   if (isTicketManager(message.member)) {
-
     // !logpartner
-    if (command==="logpartner") {
+    if (command === "logpartner") {
       const user = message.mentions.users.first();
       const serverName = args[1];
-      const amount = parseInt(args[2]);
-      if (!user || !serverName || isNaN(amount)) return message.reply("Gebruik: !logpartner @user <server> <Robux>");
-      data[user.id] = (data[user.id]||0)+amount;
-      saveData();
-      await updateMainEmbed(statsChannel);
-      await partnerLogChannel.send(`<@${user.id}> kreeg ${amount} Robux voor server ${serverName} door ${message.author.tag}`);
-      return message.reply(`✅ ${user.tag} bijgewerkt!`);
-    }
+      const membersCount = parseInt(args[2]);
+      const robux = parseInt(args[3]);
 
-    // !add partner
-    if (command==="add" && args[0]==="partner") {
-      const user = message.mentions.users.first();
-      if (!user) return message.reply("Gebruik: !add partner @user");
-      await partnerLogChannel.send(`✅ ${user.tag} toegevoegd door ${message.author.tag}`);
-      return message.reply(`✅ Partner ${user.tag} toegevoegd!`);
+      if (!user || !serverName || isNaN(membersCount) || isNaN(robux)) {
+        return message.reply("Gebruik: !logpartner @user <server> <leden> <Robux>");
+      }
+
+      // Update data
+      data[user.id] = (data[user.id] || 0) + robux;
+      saveData();
+
+      // Embed maken
+      const embed = new EmbedBuilder()
+        .setTitle("📌 Partner Log")
+        .setColor("RED")
+        .addFields(
+          { name: "Naam server", value: serverName, inline: false },
+          { name: "Leden server", value: membersCount.toString(), inline: true },
+          { name: "Robux", value: robux.toString(), inline: true }
+        )
+        .setFooter({ text: `-# door ${message.author.tag}` })
+        .setTimestamp();
+
+      await partnerLogChannel.send({ embeds: [embed] });
+      await updateMainEmbed(statsChannel);
+      return message.reply(`✅ ${user.tag} bijgewerkt in partner log!`);
     }
 
     // !totaal
@@ -242,33 +254,7 @@ client.on("messageCreate", async message => {
       const amount = data[message.author.id] || 0;
       return message.reply(`Je totaal Robux: ${amount}`);
     }
-
-    // !bericht
-    if (command==="bericht") {
-      return message.channel.send(`**🚒  | Brandweer Gasselternijveen Surveillance© | 🚒**
-
-Welkom bij BGS een Brandweer Surveillance server die zich afspeelt in het mooie plaatsje Gasselternijveen, Wij zijn een server die voornamelijk zich richt op de eenheid brandweer. 
-
-> Wat hebben wij nou tebieden?
-
-🔥 Leuk StaffTean
-🤩 1:1 Map ( In de maak )
-✨ Actiefe server
-😎 Je kan altijd een intake doen
-
-> Wat zoeken wij nog?
-
-🛠️ Developers
-🚨 Leden die mee willen doen aan onze Surveillance game
-🦺 Marketing Leden
-🫵 Jouw natuurlijk!
-
-**Heb je nou interesse gekregen om mee tedoen? Join dan nu via onderstaande link!**
-
-https://discord.gg/zUMXPh3aBH`);
-    }
   }
-
 });
 
 // ---------------- LOGIN ----------------
