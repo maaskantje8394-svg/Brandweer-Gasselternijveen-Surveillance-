@@ -243,3 +243,5 @@ client.on("messageCreate", async message => {
   if (isTicketManager(message.member)) {
     if (command === "logpartner") {
       const user = message.mentions.users.first();
+      const serverName = args[1];
+      const amount =
