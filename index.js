@@ -12,14 +12,14 @@ const client = new Client({
 
 // ---------------- CONFIG ----------------
 const TOKEN = process.env.TOKEN;
-const STATS_CHANNEL = "1427227765995995198";       // Hoofdembed kanaal
-const LOG_CHANNEL = "1427229712668819516";         // Marketing log
-const PARTNER_LOG_CHANNEL = "1427237156061184030"; // Partner log
+const STATS_CHANNEL = "1427227765995995198";
+const LOG_CHANNEL = "1427229712668819516";
+const PARTNER_LOG_CHANNEL = "1427237156061184030";
 const DATA_FILE = "./data.json";
 
-// Rollen IDs
-const MANAGER_ROLE_ID = "1390083849849143420"; // Marketing managers
-const TICKET_ROLE_ID = "1390083849843419";    // Ticket managers
+// Rollen
+const MANAGER_ROLE_ID = "1390083849849143420";
+const TICKET_ROLE_ID = "1390083849843419";
 
 // Beheerde users
 let MANAGED_USERS = [
@@ -29,11 +29,10 @@ let MANAGED_USERS = [
   "1025073640150143066"
 ];
 
-// ---------------- INIT DATA ----------------
+// ---------------- DATA ----------------
 let data = {};
-if (fs.existsSync(DATA_FILE)) {
-  data = fs.readJsonSync(DATA_FILE);
-} else {
+if (fs.existsSync(DATA_FILE)) data = fs.readJsonSync(DATA_FILE);
+else {
   MANAGED_USERS.forEach(id => data[id] = 0);
   fs.writeJsonSync(DATA_FILE, data, { spaces: 2 });
 }
@@ -44,14 +43,14 @@ function isManager(member) { return member.roles.cache.has(MANAGER_ROLE_ID); }
 function isTicketManager(member) { return member.roles.cache.has(TICKET_ROLE_ID); }
 
 function generateMainEmbed() {
-  const sorted = Object.entries(data).sort((a,b) => b[1]-a[1]);
-  const description = sorted.map(([id, amt]) => `<@${id}>: :Robux_2019_Logo_gold: ${amt}\n===================`).join("\n");
+  const sorted = Object.entries(data).sort((a,b)=>b[1]-a[1]);
+  const description = sorted.map(([id,amt])=>`<@${id}>: :Robux_2019_Logo_gold: ${amt}\n===================`).join("\n");
   const total = Object.values(data).reduce((a,b)=>a+b,0);
   return new EmbedBuilder()
     .setColor("#dc3004")
     .setTitle("Uitbetaling Marketing Leden.")
     .setDescription(`${description}\n**In totaal: :Robux_2019_Logo_gold: ${total}**\n\nMarketing uitbetalingen \`Oktober\`\nUitbetaling op \`01-11-2025\``)
-    .setImage("https://media.discordapp.net/attachments/1274312169743319112/1427225588132872246/658F897E-B2C5-49F5-A349-BA838DF7B241.jpg?ex=68ee16e8&is=68ecc568&hm=66e14498c0690680de82c031b96ba72778b4ed91274596c5c5c74357dfae89cd&=&format=webp&width=882&height=171")
+    .setImage("https://media.discordapp.net/attachments/1274312169743319112/1427225588132872246/658F897E-B2C5-49F5-A349-BA838DF7B241.jpg")
     .setFooter({ text: "MarketingTeam  Brandweer Gasselternijveen Surveillance." });
 }
 
@@ -72,7 +71,6 @@ client.once("ready", async () => {
 // ---------------- COMMANDS ----------------
 client.on("messageCreate", async message => {
   if (message.author.bot || !message.content.startsWith("!")) return;
-
   const args = message.content.slice(1).trim().split(/ +/);
   const command = args.shift().toLowerCase();
 
@@ -80,15 +78,13 @@ client.on("messageCreate", async message => {
   const logChannel = await client.channels.fetch(LOG_CHANNEL);
   const partnerLogChannel = await client.channels.fetch(PARTNER_LOG_CHANNEL);
 
-  // --------------- MANAGER COMMANDS ----------------
+  // ---------------- MANAGER COMMANDS ----------------
   if (isManager(message.member)) {
-
-    // !collega add/ontslaan
+    // !collega
     if (command === "collega") {
       const sub = args[0];
       const userId = args[1]?.replace(/[<@!>]/g,"");
       if (!userId) return message.reply("Gebruik: !collega add/ontslaan @user");
-
       if (sub === "add") {
         if (!MANAGED_USERS.includes(userId)) {
           MANAGED_USERS.push(userId);
@@ -109,7 +105,7 @@ client.on("messageCreate", async message => {
       }
     }
 
-    // !log @user <Robux>
+    // !log
     if (command === "log") {
       const user = message.mentions.users.first();
       const amount = parseInt(args[1]||args[0]);
@@ -118,7 +114,6 @@ client.on("messageCreate", async message => {
       data[user.id] = (data[user.id]||0)+amount;
       saveData();
       await updateMainEmbed(statsChannel);
-
       const embed = new EmbedBuilder()
         .setTitle("Marketing Log")
         .setColor("#00ff00")
@@ -128,7 +123,7 @@ client.on("messageCreate", async message => {
       return message.reply(`✅ ${user.tag} is bijgewerkt!`);
     }
 
-    // !set @user <Robux>
+    // !set
     if (command === "set") {
       const user = message.mentions.users.first();
       const amount = parseInt(args[1]||args[0]);
@@ -137,7 +132,6 @@ client.on("messageCreate", async message => {
       data[user.id] = amount;
       saveData();
       await updateMainEmbed(statsChannel);
-
       const embed = new EmbedBuilder()
         .setTitle("Marketing Log")
         .setColor("#FFA500")
@@ -152,7 +146,6 @@ client.on("messageCreate", async message => {
       MANAGED_USERS.forEach(id=>data[id]=0);
       saveData();
       await updateMainEmbed(statsChannel);
-
       const embed = new EmbedBuilder()
         .setTitle("Marketing Log")
         .setColor("#FF0000")
@@ -185,7 +178,6 @@ client.on("messageCreate", async message => {
       MANAGED_USERS.forEach(id=>{ if(!data[id]) data[id]=0; });
       saveData();
       await updateMainEmbed(statsChannel);
-
       const embed = new EmbedBuilder()
         .setTitle("Marketing Build")
         .setColor("#00BFFF")
@@ -203,4 +195,81 @@ client.on("messageCreate", async message => {
         .setDescription(`
 **Collega Commands**
 !collega add @user - Voeg collega toe
-!collega ontslaan @user
+!collega ontslaan @user - Verwijder collega
+!log @user <Robux> - Voeg Robux toe
+!set @user <Robux> - Zet totaal
+!reset - Reset alle totals
+!top - Top 5 overzicht
+!recreate - Herstel hoofdembed
+!build - Rebuild hoofdembed
+
+**Ticket Commands**
+!totaal - Bekijk eigen totaal
+!add partner @user - Partner toevoegen in partner log
+!logpartner @user <server> <Robux> - Voeg Robux toe (Ticket rol)
+!bericht - Stuur welkomsbericht
+`);
+      return message.channel.send({ embeds:[embed] });
+    }
+  }
+
+  // ---------------- TICKET COMMANDS ----------------
+  if (isTicketManager(message.member)) {
+
+    // !logpartner
+    if (command==="logpartner") {
+      const user = message.mentions.users.first();
+      const serverName = args[1];
+      const amount = parseInt(args[2]);
+      if (!user || !serverName || isNaN(amount)) return message.reply("Gebruik: !logpartner @user <server> <Robux>");
+      data[user.id] = (data[user.id]||0)+amount;
+      saveData();
+      await updateMainEmbed(statsChannel);
+      await partnerLogChannel.send(`<@${user.id}> kreeg ${amount} Robux voor server ${serverName} door ${message.author.tag}`);
+      return message.reply(`✅ ${user.tag} bijgewerkt!`);
+    }
+
+    // !add partner
+    if (command==="add" && args[0]==="partner") {
+      const user = message.mentions.users.first();
+      if (!user) return message.reply("Gebruik: !add partner @user");
+      await partnerLogChannel.send(`✅ ${user.tag} toegevoegd door ${message.author.tag}`);
+      return message.reply(`✅ Partner ${user.tag} toegevoegd!`);
+    }
+
+    // !totaal
+    if (command==="totaal") {
+      const amount = data[message.author.id] || 0;
+      return message.reply(`Je totaal Robux: ${amount}`);
+    }
+
+    // !bericht
+    if (command==="bericht") {
+      return message.channel.send(`**🚒  | Brandweer Gasselternijveen Surveillance© | 🚒**
+
+Welkom bij BGS een Brandweer Surveillance server die zich afspeelt in het mooie plaatsje Gasselternijveen, Wij zijn een server die voornamelijk zich richt op de eenheid brandweer. 
+
+> Wat hebben wij nou tebieden?
+
+🔥 Leuk StaffTean
+🤩 1:1 Map ( In de maak )
+✨ Actiefe server
+😎 Je kan altijd een intake doen
+
+> Wat zoeken wij nog?
+
+🛠️ Developers
+🚨 Leden die mee willen doen aan onze Surveillance game
+🦺 Marketing Leden
+🫵 Jouw natuurlijk!
+
+**Heb je nou interesse gekregen om mee tedoen? Join dan nu via onderstaande link!**
+
+https://discord.gg/zUMXPh3aBH`);
+    }
+  }
+
+});
+
+// ---------------- LOGIN ----------------
+client.login(TOKEN);
