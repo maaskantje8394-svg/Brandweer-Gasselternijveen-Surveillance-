@@ -29,6 +29,7 @@ const LEIDING_ROLES = ["1427017418122723379","1427019646665490472"];
 const MARKETING_ROLE = "1424424991797154003";
 
 // ---------------- DATA ----------------
+// Startwaarden met je collega’s en emoji
 let data = {
   "1189931854657224858": 400,
   "1375552459723902976": 235,
@@ -39,8 +40,7 @@ let data = {
   "1369407513048514591": 0
 };
 let MANAGED_USERS = Object.keys(data);
-if(!fs.existsSync(DATA_FILE)) fs.writeJsonSync(DATA_FILE, data, { spaces: 2 });
-else data = fs.readJsonSync(DATA_FILE);
+fs.writeJsonSync(DATA_FILE, data, { spaces: 2 });
 
 // ---------------- HELPERS ----------------
 function saveData(){ fs.writeJsonSync(DATA_FILE,data,{spaces:2}); }
@@ -172,7 +172,7 @@ client.on("messageCreate",async message=>{
     }
   }
 
-  // ---------------- INFO COMMANDS ----------------
+  // ---------- HELP ----------
   if(command==="help"){
     const embed = new EmbedBuilder()
       .setColor(0xFF0000)
@@ -181,87 +181,11 @@ client.on("messageCreate",async message=>{
       .setImage("https://media.discordapp.net/attachments/1274312169743319112/1427225588132872246/658F897E-B2C5-49F5-A349-BA838DF7B241.jpg")
       .addFields(
         { name:"Leiding / Beheer", value:"`!collega add @user` - Voeg toe\n`!collega ontslaan @user` - Verwijder\n`!log @user <Robux>` - Voeg Robux toe\n`!set @user <Robux>` - Zet totaal\n`!reset` - Reset alles\n`!top` - Top 5\n`!recreate` - Herbouw embed", inline:false },
-        { name:"Marketing Team", value:"`!totaal` - Bekijk eigen totaal\n`!top` - Top 5 overzicht\n`!prijzen` - Prijzen per niveau\n`!membercount` - Bekijk leden\n`!partnerbericht` - Partner copy bericht\n`!eisen` - Partner eisen overzicht", inline:false }
+        { name:"Marketing Team", value:"`!totaal` - Bekijk eigen totaal\n`!top` - Top 5 overzicht", inline:false }
       )
       .setFooter({text:"MarketingTeam  Brandweer Gasselternijveen Surveillance."});
     return message.channel.send({embeds:[embed]});
   }
-
-  // ---------------- NIEUWE COMMANDS ----------------
-  if(command==="prijzen"){
-    const embed = new EmbedBuilder()
-      .setColor(0xDC3004)
-      .setTitle("💰 Marketing Prijzen")
-      .setDescription(
-`**Junior Marketing**
-20-250 leden: <:Robux_2019_Logo_gold:1424127061060091984> 5
-250-500 leden: <:Robux_2019_Logo_gold:1424127061060091984> 10
-500-750 leden: <:Robux_2019_Logo_gold:1424127061060091984> 15
-750-1000+ leden: <:Robux_2019_Logo_gold:1424127061060091984> 20
-
-**Marketing**
-20-250 leden: <:Robux_2019_Logo_gold:1424127061060091984> 10
-250-500 leden: <:Robux_2019_Logo_gold:1424127061060091984> 15
-500-750 leden: <:Robux_2019_Logo_gold:1424127061060091984> 20
-750-1000+ leden: <:Robux_2019_Logo_gold:1424127061060091984> 25
-
-**Senior Marketing**
-20-250 leden: <:Robux_2019_Logo_gold:1424127061060091984> 15
-250-500 leden: <:Robux_2019_Logo_gold:1424127061060091984> 20
-500-750 leden: <:Robux_2019_Logo_gold:1424127061060091984> 25
-750-1000+ leden: <:Robux_2019_Logo_gold:1424127061060091984> 30`)
-      .setFooter({text:"MarketingTeam  Brandweer Gasselternijveen Surveillance."});
-    return message.channel.send({embeds:[embed]});
-  }
-
-  if(command==="membercount"){
-    const embed = new EmbedBuilder()
-      .setColor(0xDC3004)
-      .setTitle("👥 Server Members")
-      .setDescription(`Het totaal aantal leden in deze server is **${message.guild.memberCount}**.`)
-      .setFooter({text:"MarketingTeam  Brandweer Gasselternijveen Surveillance."});
-    return message.channel.send({embeds:[embed]});
-  }
-
-  if(command==="partnerbericht"){
-    const embed = new EmbedBuilder()
-      .setColor(0xDC3004)
-      .setTitle("🚒 Brandweer Gasselternijveen Surveillance© | Partner Bericht")
-      .setDescription(`Welkom bij BGS een Brandweer Surveillance server die zich afspeelt in het mooie plaatsje Gasselternijveen, Wij zijn een server die voornamelijk zich richt op de eenheid brandweer. 
-
-> Wat hebben wij nou tebieden?
-
-🔥 Leuk StaffTean
-🤩 1:1 Map ( In de maak )
-✨ Actiefe server
-😎 Je kan altijd een intake doen
-
-> Wat zoeken wij nog?
-
-🛠️ Developers
-🚨 Leden die mee willen doen aan onze Surveillance game
-🦺 Marketing Leden
-🫵 Jouw natuurlijk!
-
-**Heb je nou interesse gekregen om mee tedoen? Join dan nu via onderstaande link!**
-
-https://discord.gg/zUMXPh3aBH
-
-https://cdn.discordapp.com/attachments/1356153253330423898/1424133521064067244/Schermafbeelding_2025-10-04_132129.png
-https://media.discordapp.net/attachments/1364928783483670568/1425519287136817315/image.png`)
-      .setFooter({text:"MarketingTeam  Brandweer Gasselternijveen Surveillance."});
-    return message.channel.send({embeds:[embed]});
-  }
-
-  if(command==="eisen"){
-    const embed = new EmbedBuilder()
-      .setColor(0xDC3004)
-      .setTitle("📋 Partner eisen BGS")
-      .setDescription("`Minimaal 15 members`\n`Je blijft in de server`\n`Je server heeft geen NSFW content`\n\n> Als je akkoord gaat stuur je bericht maar door!\n\nhttps://media.discordapp.net/attachments/1355967166461116678/1425519432913915956/image.png")
-      .setFooter({text:"MarketingTeam  Brandweer Gasselternijveen Surveillance."});
-    return message.channel.send({embeds:[embed]});
-  }
-
 });
 
 // ---------------- LOGIN ----------------
