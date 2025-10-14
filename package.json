@@ -1,17 +1,26 @@
 {
   "name": "bgs-marketing-bot",
   "version": "1.0.0",
-  "description": "Discord marketing bot voor Brandweer Gasselternijveen Surveillance",
+  "description": "Brandweer Gasselternijveen Surveillance Marketing & Partner Bot",
   "main": "index.js",
   "type": "module",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
-    "discord.js": "^14.15.3",
-    "express": "^4.19.2"
+    "discord.js": "^14.16.3",
+    "express": "^4.21.1"
   },
   "engines": {
-    "node": ">=18.0.0"
-  }
+    "node": ">=18.x"
+  },
+  "keywords": [
+    "discord",
+    "marketing",
+    "bot",
+    "brandweer",
+    "gasselternijveen"
+  ],
+  "author": "Bram",
+  "license": "MIT"
 }
