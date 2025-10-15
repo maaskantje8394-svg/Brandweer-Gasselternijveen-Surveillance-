@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, StringSelectMenuBuilder } from "discord.js";
+import { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } from "discord.js";
 import fs from "fs-extra";
 import express from "express";
 
@@ -73,14 +73,16 @@ client.once("ready",async ()=>{
 });
 
 // ---------------- COMMANDS ----------------
-client.on("messageCreate", async message => {
+client.on("messageCreate",async message=>{
   if(message.author.bot || !message.content.startsWith("!")) return;
+
   const args = message.content.slice(1).trim().split(/ +/);
   const command = args.shift().toLowerCase();
   const mainChannel = await client.channels.fetch(MAIN_CHANNEL);
 
   // ---------- LEIDING / BEHEER COMMANDS ----------
   if(hasRole(message.member,[BEHEER_ROLE,...LEIDING_ROLES])){
+
     // !collega add/ontslaan
     if(command==="collega"){
       const sub = args[0];
@@ -93,6 +95,7 @@ client.on("messageCreate", async message => {
         saveData();
         await updateMainEmbed(mainChannel);
       }
+
       if(sub==="ontslaan" && MANAGED_USERS.includes(userId)){
         MANAGED_USERS = MANAGED_USERS.filter(id=>id!==userId);
         delete data[userId];
@@ -169,14 +172,23 @@ client.on("messageCreate", async message => {
 
     // ---------- !padd command ----------
     if(command==="padd"){
-      const button = new ButtonBuilder()
-        .setCustomId(`partnerBtn-${message.author.id}`)
-        .setLabel("Maak partner bericht")
-        .setStyle(ButtonStyle.Primary);
+      const row = new ActionRowBuilder()
+        .addComponents(
+          new ButtonBuilder()
+            .setCustomId("tag_none")
+            .setLabel("Geen")
+            .setStyle(ButtonStyle.Primary),
+          new ButtonBuilder()
+            .setCustomId("tag_everyone")
+            .setLabel("@everyone")
+            .setStyle(ButtonStyle.Danger),
+          new ButtonBuilder()
+            .setCustomId("tag_here")
+            .setLabel("@here")
+            .setStyle(ButtonStyle.Secondary)
+        );
 
-      const row = new ActionRowBuilder().addComponents(button);
-
-      return message.reply({ content: "Klik op de knop om je partner bericht te maken:", components: [row], ephemeral: true });
+      await message.reply({ content: "Kies een tag voor het partner bericht:", components: [row], ephemeral: true });
     }
   }
 
@@ -189,58 +201,48 @@ client.on("messageCreate", async message => {
       .setImage("https://media.discordapp.net/attachments/1274312169743319112/1427225588132872246/658F897E-B2C5-49F5-A349-BA838DF7B241.jpg")
       .addFields(
         { name:"Leiding / Beheer", value:"`!collega add @user` - Voeg toe\n`!collega ontslaan @user` - Verwijder\n`!log @user <Robux>` - Voeg Robux toe\n`!set @user <Robux>` - Zet totaal\n`!reset` - Reset alles\n`!top` - Top 5\n`!recreate` - Herbouw embed", inline:false },
-        { name:"Marketing Team", value:"`!totaal` - Bekijk eigen totaal\n`!top` - Top 5 overzicht\n`!padd` - Maak partner bericht", inline:false }
+        { name:"Marketing Team", value:"`!totaal` - Bekijk eigen totaal\n`!top` - Top 5 overzicht\n`!padd` - Partner bericht maken", inline:false }
       )
       .setFooter({text:"MarketingTeam  Brandweer Gasselternijveen Surveillance."});
     return message.channel.send({embeds:[embed]});
   }
 });
 
-// ---------- BUTTON INTERACTION ----------
+// ---------------- BUTTON + MODAL HANDLING ----------------
 client.on("interactionCreate", async interaction => {
-  if (!interaction.isButton()) return;
+  // Button click
+  if(interaction.isButton()){
+    let tag = "";
+    if(interaction.customId === "tag_none") tag = "";
+    if(interaction.customId === "tag_everyone") tag = "@everyone";
+    if(interaction.customId === "tag_here") tag = "@here";
 
-  if (!interaction.customId.startsWith("partnerBtn-")) return;
-  const userId = interaction.customId.split("-")[1];
-  if (interaction.user.id !== userId) return interaction.reply({ content: "Dit is niet jouw button!", ephemeral: true });
+    const modal = new ModalBuilder()
+      .setCustomId(`partnerModal-${interaction.user.id}-${tag}`)
+      .setTitle("Partner bericht");
 
-  const modal = new ModalBuilder()
-    .setCustomId(`partnerModal-${userId}`)
-    .setTitle("Partner bericht");
+    const messageInput = new TextInputBuilder()
+      .setCustomId("partnerMessage")
+      .setLabel("Typ je partner bericht")
+      .setStyle(TextInputStyle.Paragraph)
+      .setRequired(true);
 
-  const messageInput = new TextInputBuilder()
-    .setCustomId("partnerMessage")
-    .setLabel("Bericht")
-    .setStyle(TextInputStyle.Paragraph)
-    .setPlaceholder("Typ hier je partner bericht")
-    .setRequired(true);
+    const row = new ActionRowBuilder().addComponents(messageInput);
+    modal.addComponents(row);
 
-  const row1 = new ActionRowBuilder().addComponents(messageInput);
+    await interaction.showModal(modal);
+  }
 
-  const tagSelect = new StringSelectMenuBuilder()
-    .setCustomId("partnerTag")
-    .setPlaceholder("Kies een tag")
-    .addOptions([
-      { label: "Geen", value: "none" },
-      { label: "@everyone", value: "@everyone" },
-      { label: "@here", value: "@here" }
-    ]);
+  // Modal submit
+  if(interaction.isModalSubmit()){
+    if(!interaction.customId.startsWith("partnerModal-")) return;
 
-  const row2 = new ActionRowBuilder().addComponents(tagSelect);
+    const parts = interaction.customId.split("-");
+    const tag = parts[2]; // tag uit button
+    const text = interaction.fields.getTextInputValue("partnerMessage");
 
-  modal.addComponents(row1, row2);
-  await interaction.showModal(modal);
-});
-
-// ---------- MODAL SUBMIT ----------
-client.on("interactionCreate", async interaction=>{
-  if(!interaction.isModalSubmit()) return;
-  if(!interaction.customId.startsWith("partnerModal-")) return;
-
-  const tag = interaction.fields.getSelectMenuValues("partnerTag")[0];
-  const text = interaction.fields.getTextInputValue("partnerMessage");
-
-  await interaction.reply({ content: `Partner bericht:\n${tag!=="none"?tag:""} ${text}`, ephemeral: false });
+    await interaction.reply({ content: `${tag} ${text}`, ephemeral: false });
+  }
 });
 
 // ---------------- LOGIN ----------------
