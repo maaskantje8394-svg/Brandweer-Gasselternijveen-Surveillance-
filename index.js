@@ -2,17 +2,19 @@ import {
   Client,
   GatewayIntentBits,
   EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
   ModalBuilder,
   TextInputBuilder,
   TextInputStyle,
-  ActionRowBuilder,
   StringSelectMenuBuilder,
-  InteractionType
+  InteractionType,
 } from "discord.js";
 import fs from "fs-extra";
 import express from "express";
 
-// ---------------- EXPRESS SERVER ----------------
+// ---------------- EXPRESS ----------------
 const app = express();
 const PORT = process.env.PORT || 3000;
 app.get("/", (req, res) => res.send("Bot is online ✅"));
@@ -32,15 +34,14 @@ const client = new Client({
 const TOKEN = process.env.TOKEN;
 const MAIN_CHANNEL = "1424777371092910181";
 const PARTNER_CHANNEL = "1355967233976832164";
-const DATA_FILE = "./data.json";
 
 const BEHEER_ROLE = "1355971325700739143";
 const LEIDING_ROLES = ["1427017418122723379", "1427019646665490472"];
 const MARKETING_ROLE = "1424424991797154003";
 
 // ---------------- DATA ----------------
-let data = fs.existsSync(DATA_FILE)
-  ? fs.readJsonSync(DATA_FILE)
+let data = fs.existsSync("./data.json")
+  ? fs.readJsonSync("./data.json")
   : {
       partnerCount: 0,
       "1189931854657224858": 400,
@@ -51,13 +52,13 @@ let data = fs.existsSync(DATA_FILE)
       "1335663878683492512": 20,
       "1369407513048514591": 0,
     };
-fs.writeJsonSync(DATA_FILE, data, { spaces: 2 });
+fs.writeJsonSync("./data.json", data, { spaces: 2 });
 
 let MANAGED_USERS = Object.keys(data).filter((id) => id !== "partnerCount");
 
 // ---------------- HELPERS ----------------
 function saveData() {
-  fs.writeJsonSync(DATA_FILE, data, { spaces: 2 });
+  fs.writeJsonSync("./data.json", data, { spaces: 2 });
 }
 function hasRole(member, roleIds) {
   return roleIds.some((id) => member.roles.cache.has(id));
@@ -108,12 +109,11 @@ client.once("ready", async () => {
 // ---------------- COMMANDS ----------------
 client.on("messageCreate", async (message) => {
   if (message.author.bot || !message.content.startsWith("!")) return;
-
   const args = message.content.slice(1).trim().split(/ +/);
   const command = args.shift().toLowerCase();
   const mainChannel = await client.channels.fetch(MAIN_CHANNEL);
 
-  // Leiding / Beheer commands
+  // -------- LEIDING / BEHEER --------
   if (hasRole(message.member, [BEHEER_ROLE, ...LEIDING_ROLES])) {
     if (command === "collega") {
       const sub = args[0];
@@ -184,7 +184,7 @@ client.on("messageCreate", async (message) => {
     }
   }
 
-  // Marketing / hoger
+  // -------- MARKETING --------
   if (
     message.member.roles.cache.has(MARKETING_ROLE) ||
     hasRole(message.member, [BEHEER_ROLE, ...LEIDING_ROLES])
@@ -196,32 +196,24 @@ client.on("messageCreate", async (message) => {
       );
     }
 
+    // -------- !padd via knop --------
     if (command === "padd") {
-      const modal = new ModalBuilder()
-        .setCustomId("partnerModal")
-        .setTitle("Nieuw Partnerbericht");
+      const button = new ButtonBuilder()
+        .setCustomId(`partnerBtn-${message.author.id}`)
+        .setLabel("Partnerbericht toevoegen")
+        .setStyle(ButtonStyle.Primary);
 
-      const textInput = new TextInputBuilder()
-        .setCustomId("partnerText")
-        .setLabel("Partner bericht")
-        .setStyle(TextInputStyle.Paragraph)
-        .setRequired(true);
+      const row = new ActionRowBuilder().addComponents(button);
 
-      const tagSelect = new StringSelectMenuBuilder()
-        .setCustomId("partnerTag")
-        .setPlaceholder("Kies een tag (optioneel)")
-        .addOptions([
-          { label: "Geen", value: "none" },
-          { label: "@everyone", value: "@everyone" },
-          { label: "@here", value: "@here" },
-        ]);
-
-      const row1 = new ActionRowBuilder().addComponents(textInput);
-      const row2 = new ActionRowBuilder().addComponents(tagSelect);
-      await message.showModal(modal.addComponents(row1, row2));
+      await message.channel.send({
+        content: `Klik op de knop hieronder om een partnerbericht toe te voegen.`,
+        components: [row],
+        ephemeral: true,
+      });
     }
   }
 
+  // -------- HELP --------
   if (command === "help") {
     const embed = new EmbedBuilder()
       .setColor(0xff0000)
@@ -236,39 +228,72 @@ client.on("messageCreate", async (message) => {
         },
         {
           name: "Marketing Team",
-          value:
-            "`!totaal` - Bekijk eigen totaal\n`!top` - Top 5 overzicht\n`!padd` - Stuur partnerbericht",
+          value: "`!totaal`\n`!top`\n`!padd`",
           inline: false,
         }
       )
-      .setFooter({
-        text: "MarketingTeam  Brandweer Gasselternijveen Surveillance.",
-      });
+      .setFooter({ text: "MarketingTeam  Brandweer Gasselternijveen Surveillance." });
     return message.channel.send({ embeds: [embed] });
   }
 });
 
-// ---------------- INTERACTION HANDLER ----------------
+// -------- INTERACTIE HANDLING --------
 client.on("interactionCreate", async (interaction) => {
-  if (!interaction.isModalSubmit()) return;
-  if (interaction.customId === "partnerModal") {
-    const partnerText = interaction.fields.getTextInputValue("partnerText");
-    const tagSelect = interaction.components[1].components[0];
-    const tagValue = tagSelect?.value || "none";
+  if (!interaction.isButton() && !interaction.isModalSubmit()) return;
 
-    const partnerChannel = await client.channels.fetch(PARTNER_CHANNEL);
-    const tag =
-      tagValue === "@everyone"
-        ? "@everyone"
-        : tagValue === "@here"
-        ? "@here"
-        : "";
+  // Button click voor !padd
+  if (interaction.isButton()) {
+    if (!interaction.customId.startsWith("partnerBtn-")) return;
+    const userId = interaction.customId.split("-")[1];
+    if (interaction.user.id !== userId) {
+      return interaction.reply({ content: "Deze knop is niet voor jou.", ephemeral: true });
+    }
 
-    await partnerChannel.send(`${tag}\n${partnerText}`);
+    const modal = new ModalBuilder()
+      .setCustomId(`partnerModal-${userId}`)
+      .setTitle("Partnerbericht Toevoegen");
 
-    data.partnerCount = (data.partnerCount || 0) + 1;
-    saveData();
-    await interaction.deferUpdate();
+    const berichtInput = new TextInputBuilder()
+      .setCustomId("bericht")
+      .setLabel("Partnerbericht")
+      .setStyle(TextInputStyle.Paragraph)
+      .setPlaceholder("Typ hier je partnerbericht")
+      .setRequired(true);
+
+    const tagInput = new StringSelectMenuBuilder()
+      .setCustomId("tagSelect")
+      .setPlaceholder("Selecteer tag")
+      .addOptions(
+        { label: "Geen", value: "none" },
+        { label: "@everyone", value: "everyone" },
+        { label: "@here", value: "here" }
+      );
+
+    modal.addComponents(
+      new ActionRowBuilder().addComponents(berichtInput),
+      new ActionRowBuilder().addComponents(tagInput)
+    );
+
+    await interaction.showModal(modal);
+  }
+
+  // Modal submit
+  if (interaction.isModalSubmit()) {
+    if (!interaction.customId.startsWith("partnerModal-")) return;
+
+    const bericht = interaction.fields.getTextInputValue("bericht");
+    const tag = interaction.fields.getSelectMenuValue("tagSelect");
+
+    const channel = await client.channels.fetch(PARTNER_CHANNEL);
+    let content = "";
+
+    if (tag === "everyone") content += "@everyone\n";
+    else if (tag === "here") content += "@here\n";
+
+    content += bericht;
+    await channel.send({ content });
+
+    await interaction.reply({ content: "✅ Bericht geplaatst.", ephemeral: true });
   }
 });
 
