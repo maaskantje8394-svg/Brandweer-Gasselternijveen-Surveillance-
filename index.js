@@ -21,6 +21,7 @@ const client = new Client({
 // ---------------- CONFIG ----------------
 const TOKEN = process.env.TOKEN;
 const MAIN_CHANNEL = "1424777371092910181"; // Eind bedrag kanaal
+const PARTNER_CHANNEL = "1355967233976832164"; // Partner bericht kanaal
 const DATA_FILE = "./data.json";
 
 // Rollen
@@ -169,27 +170,6 @@ client.on("messageCreate",async message=>{
         .setDescription(top5);
       return message.channel.send({embeds:[embed]});
     }
-
-    // ---------- !padd command ----------
-    if(command==="padd"){
-      const row = new ActionRowBuilder()
-        .addComponents(
-          new ButtonBuilder()
-            .setCustomId("tag_none")
-            .setLabel("Geen")
-            .setStyle(ButtonStyle.Primary),
-          new ButtonBuilder()
-            .setCustomId("tag_everyone")
-            .setLabel("@everyone")
-            .setStyle(ButtonStyle.Danger),
-          new ButtonBuilder()
-            .setCustomId("tag_here")
-            .setLabel("@here")
-            .setStyle(ButtonStyle.Secondary)
-        );
-
-      await message.reply({ content: "Kies een tag voor het partner bericht:", components: [row], ephemeral: true });
-    }
   }
 
   // ---------- HELP ----------
@@ -201,47 +181,62 @@ client.on("messageCreate",async message=>{
       .setImage("https://media.discordapp.net/attachments/1274312169743319112/1427225588132872246/658F897E-B2C5-49F5-A349-BA838DF7B241.jpg")
       .addFields(
         { name:"Leiding / Beheer", value:"`!collega add @user` - Voeg toe\n`!collega ontslaan @user` - Verwijder\n`!log @user <Robux>` - Voeg Robux toe\n`!set @user <Robux>` - Zet totaal\n`!reset` - Reset alles\n`!top` - Top 5\n`!recreate` - Herbouw embed", inline:false },
-        { name:"Marketing Team", value:"`!totaal` - Bekijk eigen totaal\n`!top` - Top 5 overzicht\n`!padd` - Partner bericht maken", inline:false }
+        { name:"Marketing Team", value:"`!totaal` - Bekijk eigen totaal\n`!top` - Top 5 overzicht", inline:false },
+        { name:"Partner Bericht", value:"`!padd` - Vul een nieuw partnerbericht in via een pop-up", inline:false }
       )
       .setFooter({text:"MarketingTeam  Brandweer Gasselternijveen Surveillance."});
     return message.channel.send({embeds:[embed]});
   }
+
+  // ---------- PARTNER BUTTON ----------
+  if(command==="padd" && message.member.roles.cache.has(MARKETING_ROLE)){
+    const row = new ActionRowBuilder()
+      .addComponents(
+        new ButtonBuilder().setCustomId("tag_none").setLabel("Geen").setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId("tag_everyone").setLabel("@everyone").setStyle(ButtonStyle.Danger),
+        new ButtonBuilder().setCustomId("tag_here").setLabel("@here").setStyle(ButtonStyle.Secondary)
+      );
+    await message.reply({ content: "Kies je tag voor het partnerbericht:", components:[row], ephemeral:true });
+  }
 });
 
-// ---------------- BUTTON + MODAL HANDLING ----------------
+// ---------- BUTTON & MODAL ----------
 client.on("interactionCreate", async interaction => {
-  // Button click
+  if(!interaction.isButton() && !interaction.isModalSubmit()) return;
+
+  // BUTTON
   if(interaction.isButton()){
     let tag = "";
-    if(interaction.customId === "tag_none") tag = "";
-    if(interaction.customId === "tag_everyone") tag = "@everyone";
-    if(interaction.customId === "tag_here") tag = "@here";
+    if(interaction.customId==="tag_none") tag = "";
+    if(interaction.customId==="tag_everyone") tag = "@everyone";
+    if(interaction.customId==="tag_here") tag = "@here";
 
     const modal = new ModalBuilder()
       .setCustomId(`partnerModal-${interaction.user.id}-${tag}`)
       .setTitle("Partner bericht");
 
-    const messageInput = new TextInputBuilder()
+    const input = new TextInputBuilder()
       .setCustomId("partnerMessage")
       .setLabel("Typ je partner bericht")
       .setStyle(TextInputStyle.Paragraph)
       .setRequired(true);
 
-    const row = new ActionRowBuilder().addComponents(messageInput);
+    const row = new ActionRowBuilder().addComponents(input);
     modal.addComponents(row);
 
     await interaction.showModal(modal);
   }
 
-  // Modal submit
+  // MODAL SUBMIT
   if(interaction.isModalSubmit()){
     if(!interaction.customId.startsWith("partnerModal-")) return;
-
     const parts = interaction.customId.split("-");
-    const tag = parts[2]; // tag uit button
+    const tag = parts[2];
     const text = interaction.fields.getTextInputValue("partnerMessage");
 
-    await interaction.reply({ content: `${tag} ${text}`, ephemeral: false });
+    const channel = await client.channels.fetch(PARTNER_CHANNEL);
+    await channel.send({ content: `${tag} ${text}` });
+    await interaction.reply({ content: "Partnerbericht succesvol geplaatst ✅", ephemeral: true });
   }
 });
 
