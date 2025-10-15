@@ -1,17 +1,14 @@
 {
-  "name": "bgs-marketing-bot",
+  "name": "marketing-bot",
   "version": "1.0.0",
-  "description": "Discord marketing bot voor Brandweer Gasselternijveen Surveillance",
-  "main": "index.js",
+  "description": "Marketing bot",
   "type": "module",
+  "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
-  "engines": {
-    "node": ">=18.0.0"
-  },
   "dependencies": {
-    "discord.js": "^14.14.0",
+    "discord.js": "^14.17.1",
     "express": "^4.18.2",
     "fs-extra": "^11.1.1"
   }
